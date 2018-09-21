@@ -7,16 +7,16 @@ import matplotlib.pyplot as plt
 from pandasql import sqldf
 from scipy.stats import mstats
 import statsmodels.api as sm
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.metrics import mean_squared_error
-# from sklearn import linear_model, neighbors, tree, svm, ensemble
-# from xgboost import XGBRegressor
-# from sklearn.pipeline import make_pipeline
-# from tpot.builtins import StackingEstimator
-# from sklearn.model_selection import KFold
-# from sklearn.model_selection import cross_val_score
-# from sklearn.grid_search import GridSearchCV
-# from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error
+from sklearn import linear_model, neighbors, tree, svm, ensemble
+from xgboost import XGBRegressor
+from sklearn.pipeline import make_pipeline
+from tpot.builtins import StackingEstimator
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
+from sklearn.grid_search import GridSearchCV
+from sklearn.pipeline import Pipeline
 # from scipy.stats import boxcox
 # from scipy.special import inv_boxcox
 q = lambda q: sqldf(q, globals())
@@ -96,13 +96,16 @@ def do_prepare_data():
         df = fill_missing_days__and_set_datetime_index(df, start_date="2012-01-05", end_date="2016-12-28")
         df.to_csv("tables/_fill_days.csv")
         df.loc[:,'Order_Demand'] = mstats.winsorize(df['Order_Demand'].values, limits=[0.05, 0.05])
-        df['Order_Demand'] = df['Order_Demand'].apply(lambda x: np.log1p(x))
+        # df['Order_Demand'] = df['Order_Demand'].apply(lambda x: np.log(x+1))
         df = moving_average_imputation(df)
         plot(df, model_key, '2_imputation_example')
         df['model_key'] = df['Order_Demand'].apply(lambda x: model_key)
+        for i in range(1, 9):
+            df['lag_{}'.format(i)] = df['Order_Demand'].shift(i)
+        df = df.dropna()
         df['Date'] = df.index
         prepared_df = pd.concat([prepared_df, df])
-    prepared_df = sqldf("select model_key, Date, Order_Demand from prepared_df ORDER BY 1,2", locals())
+    prepared_df = sqldf("select model_key, Date, Order_Demand, lag_1, lag_2, lag_3, lag_4, lag_5, lag_6, lag_7, lag_8 from prepared_df ORDER BY 1,2", locals())
     prepared_df['Date'] = pd.to_datetime(prepared_df['Date'])
     prepared_df.to_csv("tables/2_data_prepared.csv", index=False)
     prepared_df.set_index(['Date'], inplace=True)
@@ -137,6 +140,9 @@ def plot(df, model_key, filename):
 def do_spot_check_algorithms():
     pass
 
+def load_data_2(main_df, model_key):
+    return sqldf("SELECT Date, Order_Demand, lag_1, lag_2, lag_3, lag_4, lag_5, lag_6, lag_7, lag_8 from main_df where model_key = '{}' ORDER BY 1".format(model_key), locals())
+
 def get_train_test_split(df):
     days_in_test_set = 10
     split_point = len(df) - days_in_test_set
@@ -144,21 +150,9 @@ def get_train_test_split(df):
     return train, test
 
 def mean_absolute_percentage_error(y_true, y_pred):
-    y_true, y_pred = np.expm1(y_true), np.expm1(y_pred)
+    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    # y_true, y_pred = np.expm1(y_true), np.expm1(y_pred)
     return np.mean(np.abs(y_true - y_pred) / np.abs(y_true))
-
-def auto_arima(train):
-    res = sm.tsa.arma_order_select_ic(train['Order_Demand'], ic=['bic'], trend='nc')
-    arima_y_pred = np.ones(10) * 999
-    for d in range(0, 10):
-        try:
-            model = ARIMA(train['amount'], order=(res.bic_min_order[0], d, res.bic_min_order[1]))
-            model = model.fit(disp=0)
-            arima_y_pred = model.forecast(steps=1)[0]
-            break
-        except:
-            pass
-    return res, arima_y_pred
 
 ##### MAIN
 
@@ -175,10 +169,10 @@ def auto_arima(train):
 main_df = pd.read_csv("tables/2_data_prepared.csv")
 model_keys=main_df['model_key'].unique().tolist()
 for model_key in model_keys:
-    df = load_data(main_df=main_df, model_key=model_key)
+    df = load_data_2(main_df=main_df, model_key=model_key)
     df['Date'] = pd.to_datetime(df['Date'])
     df.set_index('Date', inplace=True)
-    df['y'] = df.shift(-1)
+    df['y'] = df['Order_Demand'].shift(-1)
     df = df.dropna()
     print(df.head())
     train, test = get_train_test_split(df)
@@ -187,8 +181,50 @@ for model_key in model_keys:
     print(mean_absolute_percentage_error(test['y'], test['Order_Demand']))
     print("Average:")
     print(mean_absolute_percentage_error(test['y'], np.ones(10) * train['Order_Demand'].mean()))
-    res, arima_y_pred = auto_arima(train)
-    print(arima_y_pred)
+    print("ML")
+
+
+    X = df.drop(['y'], axis=1).values
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+    y = df['y'].values
+
+    models = []
+    models.append(("LR",linear_model.LinearRegression()))
+    models.append(("SGDRegressor",linear_model.SGDRegressor()))
+    models.append(("ElasticNet",linear_model.ElasticNet()))
+    models.append(("Ridge",linear_model.Ridge()))
+    models.append(("KNN_1",neighbors.KNeighborsRegressor(n_neighbors=1)))
+    models.append(("KNN_3",neighbors.KNeighborsRegressor(n_neighbors=3)))
+    models.append(("KNN_5",neighbors.KNeighborsRegressor(n_neighbors=5)))
+    models.append(("KNN_7",neighbors.KNeighborsRegressor(n_neighbors=7)))
+    models.append(("KNN_11",neighbors.KNeighborsRegressor(n_neighbors=11)))
+    models.append(("DT",tree.DecisionTreeRegressor()))
+    models.append(("SVRLinear",svm.SVR(kernel='linear')))
+    models.append(("SVRPoly",svm.SVR(kernel='poly')))
+    models.append(("SVRRbf",svm.SVR(kernel='rbf')))
+    models.append(("SVRSigmoid",svm.SVR(kernel='sigmoid')))
+    bag_models = []
+    for name, model in models:
+        bag_models.append(("Bagging" + name,ensemble.BaggingRegressor(model,max_samples=0.5, max_features=0.5)))
+    models = models + bag_models
+    models.append(("ExtraTreesRegressor",ensemble.ExtraTreesRegressor(n_estimators=50, max_depth=None, min_samples_split=2, random_state=2)))
+    models.append(("AdaBoost",ensemble.AdaBoostRegressor(n_estimators=50, random_state=2)))
+    models.append(("GradientBoostingRegressor",ensemble.GradientBoostingRegressor(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0)))
+    models.append(("RandomForestRegressor",ensemble.RandomForestRegressor(n_estimators = 50, max_features="log2", min_samples_leaf=5, criterion="mse",bootstrap = True,random_state=2)))
+    models.append(("XGBRegressor",make_pipeline(StackingEstimator(estimator=linear_model.RidgeCV()),
+    XGBRegressor(learning_rate=0.1, max_depth=10, min_child_weight=13, n_estimators=40, nthread=1, subsample=0.55))))
+    names, mses = [], []
+    for name, model in models:
+        cv_mse = cross_val_score(model, X, y, cv = KFold(n_splits=5, random_state=22), scoring='neg_mean_squared_error')
+        names.append(name), mses.append(-1*cv_mse.mean())
+    models_df = pd.DataFrame({'name': names, 'mse': mses}).sort_values(by=['mse']).iloc[0:]
+    plt.close()
+    ax = sns.barplot(x="name", y="mse", data=models_df)
+    ax.set_xticklabels(models_df['name'], rotation=75, fontdict={'fontsize': 12})
+    plt.savefig('images/models.png')
+    plt.show()
+
 
 
 

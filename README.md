@@ -76,6 +76,7 @@ Run a 10 small random forest times on each of 30 univariate time series to predi
   - X Use last 10 days as the test set
   - X Chose not to use CV because I don't want to tune the algorithms
   - X Check the average and persistence MAPE 1 day ahead
+  - !!! Might be that Date is not dropped for modeling, check X variable.  Make sure lag shows up in data prepared etc.  Why isn't lag there yet.
   - Check Auto ARIMA MAPE 1 day ahead
   - Check lag 8 Random Forest MAPE 1 day ahead
   - Record all results in a pandas then CSV file
@@ -93,15 +94,3 @@ Run a 10 small random forest times on each of 30 univariate time series to predi
     - the prediction for all 10 plots 1.png, ... 10.png.  One line for actual, AUTOArima, and RF
     - Title the plots as the RMSE for each line, and a line for the best RMSE.  Add a legend.  Include a baseline RMSE in this title.
 - End of project
-# ts-train-30-models
-
-_
-
-### Prerequisites
-
-_
-
-### Installing
-
-_
-
