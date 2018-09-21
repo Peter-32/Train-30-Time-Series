@@ -1,5 +1,5 @@
 import pandas as pd
-# import seaborn as sns
+import seaborn as sns
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -168,72 +168,47 @@ def mean_absolute_percentage_error(y_true, y_pred):
 ### Spot Check Algorithms
 main_df = pd.read_csv("tables/2_data_prepared.csv")
 model_keys=main_df['model_key'].unique().tolist()
+mse_df = pd.DataFrame()
+fig = plt.figure()
+i = 0
 for model_key in model_keys:
+    i = i + 1
     df = load_data_2(main_df=main_df, model_key=model_key)
     df['Date'] = pd.to_datetime(df['Date'])
     df.set_index('Date', inplace=True)
     df['y'] = df['Order_Demand'].shift(-1)
     df = df.dropna()
-    print(df.head())
     train, test = get_train_test_split(df)
-    # Chose not to use CV because I don't want to tune the algorithms
-    print("Persistence:")
-    print(mean_absolute_percentage_error(test['y'], test['Order_Demand']))
-    print("Average:")
-    print(mean_absolute_percentage_error(test['y'], np.ones(10) * train['Order_Demand'].mean()))
-    print("ML")
 
-
-    X = df.drop(['y'], axis=1).values
+    train_X = train.drop(['y'], axis=1).values
     scaler = StandardScaler()
-    X = scaler.fit_transform(X)
-    y = df['y'].values
+    train_X = scaler.fit_transform(train_X)
+    train_y = train['y'].values
+    test_X = test.drop(['y'], axis=1).values
+    test_X = scaler.transform(test_X)
+    test_y = test['y'].values
 
-    models = []
-    models.append(("LR",linear_model.LinearRegression()))
-    models.append(("SGDRegressor",linear_model.SGDRegressor()))
-    models.append(("ElasticNet",linear_model.ElasticNet()))
-    models.append(("Ridge",linear_model.Ridge()))
-    models.append(("KNN_1",neighbors.KNeighborsRegressor(n_neighbors=1)))
-    models.append(("KNN_3",neighbors.KNeighborsRegressor(n_neighbors=3)))
-    models.append(("KNN_5",neighbors.KNeighborsRegressor(n_neighbors=5)))
-    models.append(("KNN_7",neighbors.KNeighborsRegressor(n_neighbors=7)))
-    models.append(("KNN_11",neighbors.KNeighborsRegressor(n_neighbors=11)))
-    models.append(("DT",tree.DecisionTreeRegressor()))
-    models.append(("SVRLinear",svm.SVR(kernel='linear')))
-    models.append(("SVRPoly",svm.SVR(kernel='poly')))
-    models.append(("SVRRbf",svm.SVR(kernel='rbf')))
-    models.append(("SVRSigmoid",svm.SVR(kernel='sigmoid')))
-    bag_models = []
-    for name, model in models:
-        bag_models.append(("Bagging" + name,ensemble.BaggingRegressor(model,max_samples=0.5, max_features=0.5)))
-    models = models + bag_models
-    models.append(("ExtraTreesRegressor",ensemble.ExtraTreesRegressor(n_estimators=50, max_depth=None, min_samples_split=2, random_state=2)))
-    models.append(("AdaBoost",ensemble.AdaBoostRegressor(n_estimators=50, random_state=2)))
-    models.append(("GradientBoostingRegressor",ensemble.GradientBoostingRegressor(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0)))
-    models.append(("RandomForestRegressor",ensemble.RandomForestRegressor(n_estimators = 50, max_features="log2", min_samples_leaf=5, criterion="mse",bootstrap = True,random_state=2)))
-    models.append(("XGBRegressor",make_pipeline(StackingEstimator(estimator=linear_model.RidgeCV()),
-    XGBRegressor(learning_rate=0.1, max_depth=10, min_child_weight=13, n_estimators=40, nthread=1, subsample=0.55))))
-    names, mses = [], []
-    for name, model in models:
-        cv_mse = cross_val_score(model, X, y, cv = KFold(n_splits=5, random_state=22), scoring='neg_mean_squared_error')
-        names.append(name), mses.append(-1*cv_mse.mean())
-    models_df = pd.DataFrame({'name': names, 'mse': mses}).sort_values(by=['mse']).iloc[0:]
-    plt.close()
-    ax = sns.barplot(x="name", y="mse", data=models_df)
-    ax.set_xticklabels(models_df['name'], rotation=75, fontdict={'fontsize': 12})
-    plt.savefig('images/models.png')
-    plt.show()
+    model = ensemble.RandomForestRegressor(n_estimators = 50, max_features="log2", min_samples_leaf=5, criterion="mse",bootstrap = True,random_state=2)
+    model = model.fit(train_X, train_y)
+    pred_y = model.predict(test_X)
+    y_average = np.ones(10) * train['Order_Demand'].mean()
 
+    mse_persistence = mean_absolute_percentage_error(test['y'], test['Order_Demand'])
+    mse_average = mean_absolute_percentage_error(test['y'], y_average)
+    mse_rf = mean_absolute_percentage_error(test['y'], pred_y)
 
+    d = {'mse_persistence': [mse_persistence], 'mse_average': [mse_average], 'mse_rf': [mse_rf]}
+    df_temp = pd.DataFrame(data=d)
+    mse_df = pd.concat([mse_df, df_temp])
 
-
-
-
-
-
-# print(df.shape)
-# print(df.head())
-# print(df.dtypes)
-# print(df.info())
-# print(df.index)
+    ax = fig.add_subplot(10, 3, i)
+    ax.plot(test['y'].values)
+    ax.plot(pred_y)
+    ax.plot(y_average)
+    ax.tick_params(axis='both', which='major', labelsize=4)
+    ax.tick_params(axis='both', which='minor', labelsize=2)
+    if i == 1:
+        ax.legend(['y_test', 'y_pred', 'y_average'], loc='lower left', fontsize=4)
+plt.savefig('images/4_predictions.png')
+mse_df.to_csv("tables/3_mse.csv", index=False)
+plt.show()

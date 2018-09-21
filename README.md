@@ -76,12 +76,11 @@ Run a 10 small random forest times on each of 30 univariate time series to predi
   - X Use last 10 days as the test set
   - X Chose not to use CV because I don't want to tune the algorithms
   - X Check the average and persistence MAPE 1 day ahead
-  - !!! Might be that Date is not dropped for modeling, check X variable.  Make sure lag shows up in data prepared etc.  Why isn't lag there yet.
-  - Check Auto ARIMA MAPE 1 day ahead
-  - Check lag 8 Random Forest MAPE 1 day ahead
-  - Record all results in a pandas then CSV file
+  - X Check Auto ARIMA MAPE 1 day ahead
+  - X Check lag 8 Random Forest MAPE 1 day ahead
+  - X Record all results in a pandas then CSV file
 - Improve
-  - Skip
+  - X Skip
 - Post
   - Jupyter Notebook HTML to document the steps (basic, isolation, understandable, & plots)
   - Basic:
