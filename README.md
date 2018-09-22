@@ -1,4 +1,4 @@
-# Spot-Check-RF-Vs-AutoARIMA
+# Train-30-Time-Series
 
 Click here to see the [Blog Post](http://data-in-model-out.com/time-series-train-30-models/)
 
