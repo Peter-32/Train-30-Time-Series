@@ -1,14 +1,6 @@
 # Spot-Check-RF-Vs-AutoARIMA
 
-_
-
-### Prerequisites
-
-_
-
-### Installing
-
-_
+Click here to see the [Blog Post](http://data-in-model-out.com/time-series-train-30-models/)
 
 ### Goal
 
