@@ -89,7 +89,7 @@ def thirty_plots(df, filename):
     plt.savefig('images/{}.png'.format(filename))
     plt.close()
 
-# FUNCTIONS - Prepare Data
+### FUNCTIONS - Prepare Data
 
 
 def do_prepare_data():
@@ -148,7 +148,7 @@ def plot(df, model_key, filename):
     plt.savefig('images/{}.png'.format(filename))
     plt.close()
 
-# FUNCTIONS - Spot Check Algorithms
+### FUNCTIONS - Spot Check Algorithms
 
 
 def do_spot_check_algorithms():
@@ -223,17 +223,17 @@ def mean_absolute_percentage_error(y_true, y_pred):
 # MAIN
 
 
-# ETL
+### ETL
 # do_etl()
 
 
-# Exploration
+### Exploration
 # do_exploration()
 
 
-# Prepare data
+### Prepare data
 # do_prepare_data()
 
 
-# Spot Check Algorithms
+### Spot Check Algorithms
 # do_spot_check_algorithms()
